@@ -1,0 +1,74 @@
+version: '3' 
+services:
+ zoo:
+    image: zookeeper
+    restart: on-failure
+    hostname: zoo
+    ports:
+      - 2181:2181
+    networks:
+      - network
+
+ orchestrator:
+    build: ./orchestrator
+    image: orchestrator_image:latest
+    container_name: orchestrator
+    depends_on:
+      - "rabbitmq"
+      - "zoo"
+    restart: always
+    ports:
+      - "80:5000"
+    networks:
+      - network
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+   #   - /usr/bin/docker:/usr/bin/docker
+        
+ rabbitmq:
+    build: ./rabbitmq
+    image: rabbitmq_image:latest
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+    networks:
+      - network
+
+ slave:
+    build: ./slave
+    image: slave_image:latest
+    container_name: slave
+    depends_on:
+      - "rabbitmq"
+      - "orchestrator"
+      - "zoo"
+    restart: always
+    networks:
+      - network
+         
+ master:
+    build: ./master
+    image: master_image:latest
+    container_name: master
+    depends_on:
+      - "rabbitmq"
+      - "orchestrator"
+   #   - "zoo"
+    restart: always
+    networks:
+      - network
+#    volumes:
+#      - "/home/ubuntu:/todo/rideshare.db:rw"
+ #producer:
+   # build: ./producer
+   # image: producer_image:latest
+    #container_name: producer
+    #depends_on:
+    # - "rabbitmq"
+    #restart: always 
+    #networks:
+     # - network
+
+networks:
+       network: {}
