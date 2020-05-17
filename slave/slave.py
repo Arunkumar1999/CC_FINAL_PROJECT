@@ -4,21 +4,8 @@ import pika
 import time
 import json
 import sys
-#import logging
-
-#rom kazoo.client import KazooClient
-#from kazoo.client import KazooState
-
-#logging.basicConfig()
 
 time.sleep(10)
-
-#zk = KazooClient(hosts='zoo:2181')
-#zk.start()
-
-#zk.ensure_path("/slave")
-
-#zk.create("/slave/node", b"slave nodes",sequence=True,ephemeral=True)
 
 cursor = sqlite3.connect("rideshare.db")
 cursor.execute("""
@@ -82,7 +69,6 @@ master=int(sys.argv[1])
 
 
 def synch_to_all(ch, method, properties, body):
-	#print(json.loads(body),type(body),"inside synch_to_all")
 	data=json.loads(body)
 	print(data,"sync to all called")
 	if(data["indicate"]==0):
@@ -102,8 +88,6 @@ def synch_to_all(ch, method, properties, body):
 
 def copy_db_initial(channel):
     try:
-        # channel.queue_declare(queue='copyDb',durable=True)
-        # name, noOfMsg, consumers = channel.queue_declare(queue="copyDb", passive=True)
         declareStatus = channel.queue_declare(queue="persistent_queue", durable=True)
         print(declareStatus)
     except Exception as e:
@@ -113,12 +97,10 @@ def copy_db_initial(channel):
         noOfMsg=declareStatus.method.message_count
         print("No of msg in the copyDb queue\n",noOfMsg)
         while(noOfMsg>0):
-            #print(declareStatus.method.message_count,"count of meassages inside persistent_queue")
             messageRes = channel.basic_get(queue='persistent_queue',auto_ack=False)
             print(messageRes,"\nMessage got from queue")
             synch_to_all("","","",messageRes[2])
             noOfMsg=noOfMsg-1
-            #declareStatus = channel.queue_declare(queue="persistent_queue", durable=True)
     except Exception as e:
         print(e,"exception")
         print("\n Failed to read all messages in the copyDb queue while syncing whole db in slave\n")
@@ -132,13 +114,9 @@ def read_database(ch,method,props,body):
 	cursor = sqlite3.connect("rideshare.db")
 	print(body,"inside read database")
 	resp_dict={}
-	#print(body[1],"aaaaaa")
 	data = json.loads(body)
-	#print("ID: {}" .format(data['insert']))
-	#print(.format(data['insert']))
 	val=data["insert"]
 	print(val,"aaaaaaa")
-	#print(data['insert'],"from flask")
 	table=data["table"]
 	column=data["column"]
 	where_check_cond=data["where"]
@@ -167,34 +145,23 @@ def read_database(ch,method,props,body):
 		sql="select "+r+" from "+table+";"
 		print(sql,"aaaaaa")
 	
-	##print(sql)
 	resp=cursor.execute(sql)
-	#print(resp)
 	cursor.commit()
 	resp_check=resp.fetchall()
 	print(len(resp_check),"length of resp_check")
 	if(len(resp_check) == 0):
 		resp_dict["response"]=0
 		print("resonse when no users exists")
-		#return json.dumps(resp_dict)
 	else:
-		
-		#print(resp_check)
-		#print(list(resp_check[0]))
-		#print(len(resp_check),"count of all rows")
 		resp_dict["count"]=resp_check[0]
 		for i in range(len(resp_check)):
 			for j in range(len(column)):
 				resp_dict.setdefault(column[j],[]).append(list(resp_check[i])[j])
-		#print(resp_dict,"hii i am dict")
-		#print("user does exists from read_Db")
 		resp_dict["response"]=1
-		#return json.dumps(resp_dict)
 
 	ch.basic_publish(exchange='', 
 		routing_key=props.reply_to, 
     		properties=pika.BasicProperties(correlation_id=props.correlation_id),
-        	#delivery_mode=2,  # make message persistent
 		body=json.dumps(resp_dict))
 	print(" [x] Sent  ",resp_dict)
 	ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -209,14 +176,12 @@ def write_database(ch,method,props,body):
 		cursor.execute("PRAGMA FOREIGN_KEYS=on")
 		cursor.commit()
 	except Exception as e:
-		#print("Database connect error:",e)
 		pass
 	if(indicate=="0"):
 		return_var=None
 		print("inside 0 segment")
 		val=data["insert"]
 		print(val,"aaaaaaa")
-		#print(data['insert'],"from flask")
 		table=data["table"]
 		column=data["column"]
 		print(table,column)
@@ -235,7 +200,6 @@ def write_database(ch,method,props,body):
 
 			sql="insert into "+table+" ("+r+")"+" values ("+s+")"
 			print(sql,"insert statements")
-			#print("query:",sql)
 			cursor.execute(sql,val)
 
 			cursor.commit()
@@ -257,10 +221,6 @@ def write_database(ch,method,props,body):
 			print(type(sql1))
 			print(" [x] Sent %r" % sql1)
 			print("after fanout")
-
-			#sql="select * from users"
-			#et=cursor.execute(sql)
-			#rows = et.fetchall()
 			print("hiiiiiiii")
 			return_var=1
 		except Exception as e:
@@ -307,7 +267,6 @@ def write_database(ch,method,props,body):
 			cursor.execute("DELETE FROM rideusers")
 			cursor.commit()
 			sql2={"indicate":3}
-			#channel1 = connection.channel()
 			channel.exchange_declare(exchange='logs', exchange_type='fanout')
 			channel.basic_publish(exchange='logs', routing_key='', body=(json.dumps(sql2)))
 			return_var_del_all=1
@@ -328,7 +287,6 @@ def write_database(ch,method,props,body):
 	ch.basic_publish(exchange='', 
 		routing_key=props.reply_to, 
     		properties=pika.BasicProperties(correlation_id=props.correlation_id),
-        	#delivery_mode=2,  # make message persistent
 		body=json.dumps(return_response))
 	print(" [x] Sent  ",return_response)
 	ch.basic_ack(delivery_tag=method.delivery_tag)

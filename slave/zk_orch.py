@@ -26,7 +26,6 @@ workerProc=subprocess.Popen(["python","slave.py","0"])
 
 logging.basicConfig()
 
-# Can also use the @DataWatch and @ChildrenWatch decorators for the same
 def demo_func(event):
     # Create a node with data
     global zk_path

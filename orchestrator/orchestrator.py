@@ -10,7 +10,7 @@ from datetime import datetime
 import docker
 import threading
 import math
-lock = threading.Lock()
+
 
 import logging
 
@@ -27,7 +27,6 @@ app=Flask(__name__)
 
 zk = KazooClient(hosts='zoo:2181')
 zk.start()
-#spawn_new=1
 
 
 crashSlaveApiCalled=False
@@ -45,29 +44,9 @@ pidZnodeMapping={}
 currentMasterZnodePath="/producer/Worker0"
 currentMasterpid=0
 slavesDeletedDueToScaleDown=0
-#def demo_func(event):
-#    print("somethings changed in slave")
-
-#data, stat = zk.get("/slave/node_1")
-#print("Version: %s, data: %s" % (stat.version, data.decode("utf-8")))
-
-# List the children
-#children = zk.get_children("/slave", watch=demo_func)
-#print("There are %s children with names %s" % (len(children), children))
-# @zk.ChildrenWatch("/slave")
-# def zookeep(children):
-# 	global spawn_new
-# 	if(spawn_new==2):
-# 		print("I AM TRIGGERED BECAUSE  A CHILD IS DEAD :(")
-# 		client.containers.run("slave_image",command="python slave.py 0",network="cc_final_test_network",detach=True)
-# 		spawn_new=1
-# 	else:
-# 		return "nothing should be done"
 
 def initialisePidZnodeMapping():
     print("\n\nInitialising pidZnodeMapping . . .")
-    # pids = requests.get(url='http://0.0.0.1/api/v1/worker/list')
-    # pids=worker_list()
     global client
     container_list = []
     x = client.containers.list(filters={"ancestor": "master_image"})
@@ -83,14 +62,11 @@ def initialisePidZnodeMapping():
             stat = c.inspect_container(i)
             pidList.append(stat['State']['Pid'])
     print(pidList, "pid list")
-    # pidList =list( pids)
-    # newMasterPid=pidList[0]
     print(pidList,"Worker PidList")
     pidZnodeMapping[pidList[0]]="/producer/Worker0"
     pidZnodeMapping[pidList[1]]="/producer/Worker1"
 
 WAIT_SECONDS=120
-#spawn_new=1
 client = docker.from_env()
 
 @app.route("/api/v1/spawn/slave",methods=["POST"])
@@ -109,36 +85,28 @@ def spawn_slave():
 		contPid=data['State']['Pid']
 		print(contPid,"PID of new Container spawned")
 		pidZnodeMapping[contPid]="/producer/Worker"+str(workerCount)
-		# x = client.containers.list()
 		print(pidZnodeMapping)
 	return "success"
 
 def fun_for_count():
 	try:
-		#lock.acquire()
 		file=open("read_count.txt","r")
 		e=file.readline()
 		q=int(e)+1
 		file.close()
 		file=open("read_count.txt","w")
-		#file.write(str(q)+" 1")
 		file.write(str(q))
 		file.write("\n")
 		file.write("1")
-		#lock.release()
 	except:
-		#lock.acquire()
 		print("inside except")
 		file=open("read_count.txt","w")
-		#file.write("%d %d"%(1,0))
 		file.write("1")
 		file.write("\n")
 		file.write("0")
-		#lock.release()
 	file.close()
 
 def deamon_call():
-	#lock.acquire()
 	global scalingDown
 	global  slavesDeletedDueToScaleDown
 	file=open("read_count.txt","r")
@@ -149,7 +117,6 @@ def deamon_call():
 	check_initial=int(read_line2)
 	print(check_initial,"second digit in file")
 	file.close()
-	#lock.release()
 	print(count,"gggg")
 	res=requests.get("http://0.0.0.0:5000/api/v1/worker/list")
 	print(res)	
@@ -160,8 +127,6 @@ def deamon_call():
 		new_containers=1
 	if(new_containers>number_of_cont):
 		scale_out=new_containers-number_of_cont
-		#for i in range(scale_out):
-		#	client.containers.run("slave_image",command="python slave.py",network="cc_final_test_network",detach=True)
 		result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":scale_out})
 	elif(number_of_cont>new_containers):
 		scale_in=number_of_cont-new_containers
@@ -171,26 +136,18 @@ def deamon_call():
 			result=requests.post("http://0.0.0.0:5000/api/v1/crash/slave",json={"reason":"scale_in"})
 		scalingDown=False
 	
-	#for i in range()
-	#	print("inside foo function")
-	#	client.containers.run("slave_image",command="python slave.py",network="cc_final_test_network",detach=True)
-	#	print("new container created")
-	#lock.acquire()
 	file=open("read_count.txt","w")
 	if(check_initial==0):
 		print("writing 1 1 intially")
-		#file.write("%d %d"%(1,1))
 		file.write("1")
 		file.write("\n")
 		file.write("1")
 	else:
 		print("resetting count")
-		#file.write("%d %d"%(0,1))
 		file.write("0")
 		file.write("\n")
 		file.write("1")
 	file.close()
-	#lock.release()
 	threading.Timer(WAIT_SECONDS, deamon_call).start()
 
 def electLeader():
@@ -207,7 +164,6 @@ def electLeader():
     currentMasterpid=newMasterPid
     zk.set(currentMasterZnodePath,b"master")
     print("Creating slave after electing leader")
-    #createSlaves(1)
     result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":1})
 
 def checkIfMasterDied(event):
@@ -228,7 +184,6 @@ def checkIfMasterDied(event):
             createSlaves(1)
         if(slavesDeletedDueToScaleDown>0):
             slavesDeletedDueToScaleDown-=1
-            # scalingDown=False
 
 
 def foo(znode):
@@ -258,17 +213,11 @@ def watch_children(children):
     global allZnodes    
     global znodesCount
     global scalingDown
-    global c
-    if(c>=2):
-        c=0
-    # Vishal code
-    #end :)
     print("\nchildrenWatch called\n")
     print("\n\ncrashSlaveApiCalled",crashSlaveApiCalled)
     print("\n\nIn orchestrator watch , Children are now: %s" % children)
     for znode in children:
         if(znode not in allZnodes):
-            # allZnodes.append(znode)
             allZnodes[znode]=0
             foo(znode)
             znodesCount+=1
@@ -280,22 +229,11 @@ def watch_children(children):
     except Exception as e:
         print(e,'error in @childernwacth')
     print(znodesCount,"ZnodesCount")
-    # a=[1,2,3,4,5]
-    # actu=[1,2,5]
     if(znodesCount>len(children)):
         znodesDeleted=abs(len(children)-znodesCount)
         print(str(znodesDeleted)+" Znodes deleted:( \n")
         znodesCount=len(children)
         temp=[]
-        if not scalingDown:
-            if c<1: #bcz this watch was getting called twice so to handle that
-                
-                # print("Creating slave from childrenwatch")
-                # createSlaves(znodesDeleted)
-                c+=1
-            else:
-                c+=1
-        # scalingDown=False
         for znode in allZnodes.keys():
             if(znode not in children):
                 temp.append(znode)
@@ -310,8 +248,6 @@ class write_class(object):
 	def __init__(self):
 		self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
 		self.channel = self.connection.channel()
-		#self.callback_queue='response_queue'
-		#self.channel.queue_declare(queue=self.callback_queue,exclusive=True)
 		result=self.channel.queue_declare(queue='', exclusive=True)
 		self.callback_queue_write=result.method.queue
 		self.channel.basic_consume(queue=self.callback_queue_write,
@@ -380,14 +316,11 @@ def write_database():
 	obj=write_class()
 	write_response = obj.write_call(write_content)
 	print(write_response,"final response")
-	#res=jsonify(response)
-	#print(res.json(),"djflsdkfj")
 	return jsonify(write_response)
 
 @app.route("/api/v1/db/read",methods=["POST"])
 def read_database():
 	fun_for_count()
-	#lock.acquire()
 	file=open("read_count.txt","r")
 	count=file.readline()
 	print(count,"aaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -395,7 +328,6 @@ def read_database():
 	call_deamon=int(count2)
 	print(call_deamon,"calling deamon for the first time")
 	file.close()
-	#lock.release()
 	if(call_deamon==0):
 		threading.Timer(WAIT_SECONDS,deamon_call).start()
 	read_content=request.get_json()
@@ -421,7 +353,6 @@ def worker_list():
 	c=docker.APIClient()
 	for i in container_list:
 		stat=c.inspect_container(i)
-		#print(type(stat['Args'][1]))
 		pid_list.append(stat['State']['Pid'])
 	pid_list.sort()
 	print(pid_list,"sorted list")
@@ -439,7 +370,6 @@ def crash_slave():
 	c=docker.APIClient()
 	for i in slave_list:
 		stat=c.inspect_container(i)
-		#print(stat\n)
 		PID=(stat['State']['Pid'])
 		slave_pid.append(PID)
 		mapping[PID]=i
@@ -454,8 +384,6 @@ def crash_slave():
 		if(j.id==to_be_killed):
 			j.stop()
 			j.remove()
-	#if(len(slave_pid)==1):
-	#	client.containers.run("slave_image",command="python slave.py",network="cc_final_test_network",detach=True)
 	return json.dumps([largest_pid]),200
 
 
@@ -502,13 +430,6 @@ def crash_master():
                 j.stop()
                 exitCode=j.wait()
                 print("\nExitcode",exitCode)
-                # j.remove()
-        # if(not scalingDown):
-        #     createSlaves(1)
-        # workers=client.containers.list()
-        # noOfActiveSlave=len(workers)-4
-        # if(noOfActiveSlave==0):
-        #     createSlaves(1)
         
         return json.dumps(largest_pid)
 

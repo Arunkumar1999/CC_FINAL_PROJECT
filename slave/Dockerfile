@@ -1,5 +1,4 @@
 FROM python
-#RUN mkdir -p /todo
 ADD . /todo
 WORKDIR /todo
 ENV PYTHONUNBUFFERED=1 
