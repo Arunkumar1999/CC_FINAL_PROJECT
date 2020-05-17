@@ -27,8 +27,10 @@ app=Flask(__name__)
 
 zk = KazooClient(hosts='zoo:2181')
 zk.start()
-spawn_new=1
+#spawn_new=1
 
+
+crashSlaveApiCalled=False
 c=0
 workerCount=1
 prevZnodeDataWatchCalledOn=""
@@ -64,7 +66,7 @@ slavesDeletedDueToScaleDown=0
 
 def initialisePidZnodeMapping():
     print("\n\nInitialising pidZnodeMapping . . .")
-    # pids = requests.get(url='http://127.0.0.1/api/v1/worker/list')
+    # pids = requests.get(url='http://0.0.0.1/api/v1/worker/list')
     # pids=worker_list()
     global client
     container_list = []
@@ -99,16 +101,16 @@ def spawn_slave():
 	print(count,"number of new containers to be spawned")
 	for i in range(count):
 		workerCount+=1
-		client.containers.run("slave_image",environment=["workerUniqueId="+str(workerCount)],network="cc_final_test_network",detach=True)
+		container=client.containers.run("slave_image",environment=["workerUniqueId="+str(workerCount)],network="cc_local_copy_network",detach=True)
 		print(container)
-        contId=container.id
-        apiClient=docker.APIClient()
-        data = apiClient.inspect_container(contId)
-        contPid=data['State']['Pid']
-        print(contPid,"PID of new Container spawned")
-        pidZnodeMapping[contPid]="/producer/Worker"+str(workerCount)
-        # x = client.containers.list()
-        print(pidZnodeMapping)
+		contId=container.id
+		apiClient=docker.APIClient()
+		data = apiClient.inspect_container(contId)
+		contPid=data['State']['Pid']
+		print(contPid,"PID of new Container spawned")
+		pidZnodeMapping[contPid]="/producer/Worker"+str(workerCount)
+		# x = client.containers.list()
+		print(pidZnodeMapping)
 	return "success"
 
 def fun_for_count():
@@ -138,7 +140,7 @@ def fun_for_count():
 def deamon_call():
 	#lock.acquire()
 	global scalingDown
-    global  slavesDeletedDueToScaleDown
+	global  slavesDeletedDueToScaleDown
 	file=open("read_count.txt","r")
 	read_line=file.readline()
 	print(read_line,"reading file dsfdsf")
@@ -165,7 +167,7 @@ def deamon_call():
 		scale_in=number_of_cont-new_containers
 		for i in range(scale_in):
 			slavesDeletedDueToScaleDown+=1
-        	scalingDown=True
+			scalingDown=True
 			result=requests.post("http://0.0.0.0:5000/api/v1/crash/slave",json={"reason":"scale_in"})
 		scalingDown=False
 	
@@ -195,7 +197,7 @@ def electLeader():
     global zk
     global currentMasterZnodePath
     global currentMasterpid
-    pids = requests.get(url='http://127.0.0.1/api/v1/worker/list')
+    pids = requests.get(url='http://0.0.0.0:5000/api/v1/worker/list')
     print(pids,"Pids")
     pidList = json.loads(pids.text)
     newMasterPid=pidList[0]
@@ -205,8 +207,8 @@ def electLeader():
     currentMasterpid=newMasterPid
     zk.set(currentMasterZnodePath,b"master")
     print("Creating slave after electing leader")
-    createSlaves(1)
-
+    #createSlaves(1)
+    result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":1})
 
 def checkIfMasterDied(event):
     global currentMasterZnodePath
@@ -410,7 +412,7 @@ def worker_list():
 	x=client.containers.list()
 	print(x,"containers")
 	for i in x:
-		if(i.name=="orchestrator" or i.name=="rabbitmq" or i.name=="cc_final_test_zoo_1"):
+		if(i.name=="orchestrator" or i.name=="rabbitmq" or i.name=="cc_local_copy_zoo_1"):
 			print(i.id,i.name)
 		else:
 			print(i.name,"4445445455")
@@ -419,7 +421,7 @@ def worker_list():
 	c=docker.APIClient()
 	for i in container_list:
 		stat=c.inspect_container(i)
-		print(type(stat['Args'][1]))
+		#print(type(stat['Args'][1]))
 		pid_list.append(stat['State']['Pid'])
 	pid_list.sort()
 	print(pid_list,"sorted list")
@@ -427,13 +429,6 @@ def worker_list():
 
 @app.route("/api/v1/crash/slave",methods=["POST"])
 def crash_slave():
-	global spawn_new
-	try:
-		reason=request.get_json()["reason"]
-		if(reason=="scale_in"):
-			spawn_new=0
-	except:
-		spawn_new=2
 	slave_list=[]
 	mapping={}
 	x=client.containers.list(filters={"ancestor":"slave_image"})
@@ -462,6 +457,60 @@ def crash_slave():
 	#if(len(slave_pid)==1):
 	#	client.containers.run("slave_image",command="python slave.py",network="cc_final_test_network",detach=True)
 	return json.dumps([largest_pid]),200
+
+
+@app.route("/api/v1/crash/master", methods=["POST"])
+def crash_master():
+        
+        print("killing master")
+        global scalingDown
+        global crashSlaveApiCalled
+        slave_list = []
+        crashSlaveApiCalled=True
+        mapping = {}
+        if(currentMasterpid==0):
+            x = client.containers.list(filters={"ancestor": "master_image"})
+        else:
+            x = client.containers.list(filters={"ancestor": "slave_image"})
+        print(x, "worker containers")
+        for i in x:
+            slave_list.append(i.id)
+        slave_pid = []
+        c = docker.APIClient()
+        if(currentMasterpid==0):
+            for i in slave_list:
+                stat = c.inspect_container(i)
+                PID = (stat['State']['Pid'])
+                slave_pid.append(PID)
+                mapping[PID] = i
+        else:
+            for i in slave_list:
+                stat = c.inspect_container(i)
+                PID = (stat['State']['Pid'])
+                if(PID==currentMasterpid):
+                    slave_pid.append(PID)
+                    mapping[PID] = i
+                    
+        slave_pid.sort()
+        print(mapping, "Killing master")
+        if(len(slave_pid) == 0):
+            print("no containers to kill")
+        largest_pid = slave_pid[len(slave_pid)-1]
+        to_be_killed = mapping[largest_pid]
+        for j in x:
+            if(j.id == to_be_killed):
+                j.stop()
+                exitCode=j.wait()
+                print("\nExitcode",exitCode)
+                # j.remove()
+        # if(not scalingDown):
+        #     createSlaves(1)
+        # workers=client.containers.list()
+        # noOfActiveSlave=len(workers)-4
+        # if(noOfActiveSlave==0):
+        #     createSlaves(1)
+        
+        return json.dumps(largest_pid)
 
 @app.route("/api/v1/db/clear",methods=["POST"])
 def clear_db():

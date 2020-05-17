@@ -21,7 +21,7 @@ if zk.exists(newZnodePath):
 else:
     print("Creating new znode")
     zk.create(newZnodePath, b"slave",ephemeral=True)
-workerProc=subprocess.Popen(["python","worker.py","0"])
+workerProc=subprocess.Popen(["python","slave.py","0"])
 
 
 logging.basicConfig()
@@ -39,7 +39,7 @@ def demo_func(event):
         print("Yay !! I am the new master now. says: "+newZnodePath)
         print("restart the process worker.py")
         workerProc.kill()
-        workerProc=subprocess.Popen(["python","worker.py","1"])
+        workerProc=subprocess.Popen(["python","slave.py","1"])
         workerProc.wait()
     # zk.create("/producer/node_2", b"new demo producer node") 
     print(event)

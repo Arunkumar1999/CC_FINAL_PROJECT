@@ -16,20 +16,20 @@ services:
     depends_on:
       - "rabbitmq"
       - "zoo"
-    restart: always
+    restart: on-failure
     ports:
       - "80:5000"
     networks:
       - network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-   #   - /usr/bin/docker:/usr/bin/docker
+   
         
  rabbitmq:
     build: ./rabbitmq
     image: rabbitmq_image:latest
     container_name: rabbitmq
-    restart: always
+    restart: on-failure
     ports:
       - "5672:5672"
     networks:
@@ -43,7 +43,7 @@ services:
       - "rabbitmq"
       - "orchestrator"
       - "zoo"
-    restart: always
+    restart: on-failure
     networks:
       - network
          
@@ -54,21 +54,10 @@ services:
     depends_on:
       - "rabbitmq"
       - "orchestrator"
-   #   - "zoo"
-    restart: always
+      - "zoo"
+    restart: on-failure
     networks:
       - network
-#    volumes:
-#      - "/home/ubuntu:/todo/rideshare.db:rw"
- #producer:
-   # build: ./producer
-   # image: producer_image:latest
-    #container_name: producer
-    #depends_on:
-    # - "rabbitmq"
-    #restart: always 
-    #networks:
-     # - network
 
 networks:
        network: {}
