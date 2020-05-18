@@ -14,9 +14,7 @@ Serves the database read/write APIs for the Rideshare application.
     ```
 
 ##Commands to run the initial five containers which are Orchestrator, RabbitMQ,Zookeeper,master and a slave 
-
-2. Run the `build` command to start Orchestrator, RabbitMQ and Zookeeper 
-
+cd into the repo folder and type the following command
     ```shell
     $sudo docker-compose build
     ```
@@ -24,6 +22,7 @@ Serves the database read/write APIs for the Rideshare application.
     ```shell
     $sudo docker-compose up -d
     ```
+
  
 
 
