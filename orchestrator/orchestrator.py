@@ -181,7 +181,7 @@ def checkIfMasterDied(event):
         print("Chill dude ! Master dint die :)")
         if slavesDeletedDueToScaleDown==0:
             print("creating slave due to fault tolerance")   
-            createSlaves(1)
+            result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":1})
         if(slavesDeletedDueToScaleDown>0):
             slavesDeletedDueToScaleDown-=1
 
