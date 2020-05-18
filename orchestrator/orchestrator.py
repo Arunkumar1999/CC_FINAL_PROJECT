@@ -240,6 +240,11 @@ def watch_children(children):
             znodesCount+=1
     
 
+#As soon as the object is created init funtion is executed where we will declare a queue which
+#is response queue in our case.Upon recieving the response it will check the correlation id and 
+#assigns the body of the response to the write_response.
+#Write call function will generate uinque id to assign it to the request and the contents are published 
+# to the write_queue and specifies the queue to which the response should come.
 class write_class(object):
 	
 	def __init__(self):
@@ -271,6 +276,7 @@ class write_class(object):
 			self.connection.process_data_events()
 		return self.write_response
 
+
 class read_class(object):
 	
 	def __init__(self):
@@ -300,7 +306,9 @@ class read_class(object):
 			self.connection.process_data_events()
 		return self.read_response
 
-
+#All the write requests are routed to this end-point and object is created with write_class
+#and object method write_call is called by passing recieved content to the method.
+#Finally returns the response.
 @app.route("/api/v1/db/write",methods=["POST"])
 def write_database():
 	write_content=request.get_json()
@@ -309,6 +317,14 @@ def write_database():
 	print(write_response,"final response")
 	return jsonify(write_response)
 
+
+
+#All the read requests are routed to this end-point.
+#Function for count is called which keeps the count of requests made.
+#Calls the daemon process only for the first time.
+#object is created with read_class and object method read_call is called 
+#by passing recieved content to the method.
+#Finally returns the response.
 @app.route("/api/v1/db/read",methods=["POST"])
 def read_database():
 	fun_for_count()
@@ -327,6 +343,8 @@ def read_database():
 	return jsonify(read_response)
 
 
+#worker_list function lists all the workers running.
+#we filter it out using the already built images.
 @app.route("/api/v1/worker/list",methods=["GET"])
 def worker_list():
 	container_list=[]
@@ -346,6 +364,9 @@ def worker_list():
 	print(pid_list,"sorted list")
 	return json.dumps(pid_list),200
 
+#This function will kill the container with highest pid.
+#It recieves all the containers built with slave_image and kills
+# the contaier with the hights pid.
 @app.route("/api/v1/crash/slave",methods=["POST"])
 def crash_slave():
 	slave_list=[]
@@ -373,7 +394,9 @@ def crash_slave():
 			j.remove()
 	return json.dumps([largest_pid]),200
 
-
+#This function will kill the master.
+#We will get the master container using the image name for the first time.
+#we will filter it out the other times with the help of currentMasterpid.
 @app.route("/api/v1/crash/master", methods=["POST"])
 def crash_master():
         
@@ -420,6 +443,7 @@ def crash_master():
         
         return json.dumps(largest_pid)
 
+#This function will call the db/write end point which clears the whole database.
 @app.route("/api/v1/db/clear",methods=["POST"])
 def clear_db():
 	if(request.method!="POST"):
@@ -432,7 +456,7 @@ def clear_db():
 		return json.dumps({'success':"cleared successfully"}), 200, {'ContentType':'application/json'}
 
 
-
+#use_reloader is assigned false to prevent the flask application from being invoked twice.
 if __name__ == '__main__':
 	app.debug=True
 	initialisePidZnodeMapping()
