@@ -1,3 +1,4 @@
+#import required libraries 
 import sqlite3
 import csv
 import pika
@@ -6,6 +7,8 @@ import json
 import sys
 
 time.sleep(10)
+
+#sqlite statements to create the rideshare database
 cursor = sqlite3.connect("rideshare.db")
 cursor.execute("""
         CREATE TABLE IF NOT EXISTS users(
@@ -31,6 +34,7 @@ cursor.execute("""
     );
 """)
 
+#Fetching the values from the csv file and inserting into place table
 with open('AreaNameEnum.csv') as File:  
 	reader = csv.reader(File)
 
@@ -61,9 +65,14 @@ cursor.execute("""
 
 cursor.commit()
 
+#connecting to the rabbitmq server which is running in a 
+#seperate container.
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='rabbitmq'))
 channel = connection.channel()
+
+#fetching the command line argument to decide whether 
+#this worker should behave as master or slave
 master=int(sys.argv[1])
 
 
