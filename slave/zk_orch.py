@@ -5,7 +5,7 @@ import subprocess
 from kazoo.client import KazooClient
 from kazoo.client import KazooState
 import time
-time.sleep(14)
+#time.sleep(14)
 
 zk_path="/producer/" #root path for zookeeper watch is specified here
 data = os.environ
@@ -25,10 +25,10 @@ if zk.exists(newZnodePath):
     print("Node already exists")
 else:
     print("Creating new znode")
-    zk.create(newZnodePath, b"master",ephemeral=True)
+    zk.create(newZnodePath, b"slave",ephemeral=True)
 
 #Starts a python process which makes the worker to behave as master
-workerProc=subprocess.Popen(["python","master.py","0"])
+workerProc=subprocess.Popen(["python","slave.py","0"])
 
 
 logging.basicConfig()
@@ -48,7 +48,7 @@ def demo_func(event):
         print("Yay !! I am the new master now. says: "+newZnodePath)
         print("restart the process worker.py")
         workerProc.kill()
-        workerProc=subprocess.Popen(["python","master.py","1"])
+        workerProc=subprocess.Popen(["python","slave.py","1"])
         workerProc.wait()
 
     print(event)

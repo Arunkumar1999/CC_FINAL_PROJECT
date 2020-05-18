@@ -41,7 +41,7 @@ services:
     container_name: slave
     depends_on:
       - "rabbitmq"
-      - "orchestrator"
+#      - "orchestrator"
       - "zoo"
     restart: on-failure
     networks:
@@ -53,7 +53,7 @@ services:
     container_name: master
     depends_on:
       - "rabbitmq"
-      - "orchestrator"
+ #     - "orchestrator"
       - "zoo"
     restart: on-failure
     networks:

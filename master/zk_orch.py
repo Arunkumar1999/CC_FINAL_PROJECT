@@ -5,7 +5,7 @@ import subprocess
 from kazoo.client import KazooClient
 from kazoo.client import KazooState
 import time
-time.sleep(14)
+#time.sleep(14)
 
 zk_path="/producer/" #root path for zookeeper watch is specified here
 data = os.environ
