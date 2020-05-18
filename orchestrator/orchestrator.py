@@ -1,3 +1,4 @@
+#import required libraries
 import sqlite3 
 from flask import Flask, render_template,jsonify,request,abort,Response 
 import requests 
@@ -24,27 +25,28 @@ logging.basicConfig()
 time.sleep(15)
 app=Flask(__name__)
 
-
+#connecting to zookeeper server
 zk = KazooClient(hosts='zoo:2181')
 zk.start()
 
 
 crashSlaveApiCalled=False
-#c=0
 workerCount=1
 prevZnodeDataWatchCalledOn=""
 prevEventType=""
 
-zk_path="/producer/"
-zk.ensure_path(zk_path)
+zk_path="/producer/" #root path for zookeeper watch is specified here
+zk.ensure_path(zk_path)  #ensures a path , creates if necessary
 scalingDown=False
 allZnodes={}
 znodesCount=0
 pidZnodeMapping={}
-currentMasterZnodePath="/producer/Worker0"
+currentMasterZnodePath="/producer/Worker0" #the master path at starting
 currentMasterpid=0
 slavesDeletedDueToScaleDown=0
 
+# This funtion is called as soon as the orchestrator is started which keeps the 
+# mapping containing the pid and id of containers of two initial workers is kept.  
 def initialisePidZnodeMapping():
     print("\n\nInitialising pidZnodeMapping . . .")
     global client
@@ -66,9 +68,16 @@ def initialisePidZnodeMapping():
     pidZnodeMapping[pidList[0]]="/producer/Worker0"
     pidZnodeMapping[pidList[1]]="/producer/Worker1"
 
+#specifies the time in seconds to wait before calling the daemon process
 WAIT_SECONDS=120
+
+#instantiating the client to talk to the docker daemon
 client = docker.from_env()
 
+#This function spawns new containers when needed in case of scaling out or fault tolerance
+#the new container is run with specified network so that it can communicate with other containers and
+#detach=true indicates that the container will run in the background.
+#pidZnodeMapping is maintained which is used in case of master election.
 @app.route("/api/v1/spawn/slave",methods=["POST"])
 def spawn_slave():
 	count=request.get_json()["count"]
@@ -87,6 +96,10 @@ def spawn_slave():
 		print(pidZnodeMapping)
 	return "success"
 
+#This function is called when a read request is called to increment the count of 
+#read requests.For the first time it sets the second line value to zero so that the 
+#daemon process is called and it is set to 1 on further requests to prevent it from calling
+#daemon process.
 def fun_for_count():
 	try:
 		file=open("read_count.txt","r")
@@ -105,14 +118,17 @@ def fun_for_count():
 		file.write("0")
 	file.close()
 
+#This is the funtion which checks the count of read requests every two minutes.
+#Based upon the count the decision of scaling out or scaling in is taken.
+#In case of scale_out spawn/slave endpoint is called and in case of scale_in crash/slave endpoint is called.
+#It cheks the current number of slaves by calling the worker list and compares it with the containers needed to 
+# take the decison of scale_in or scale_out.And it resets the count to zero.
 def daemon_call():
 	global scalingDown
 	global  slavesDeletedDueToScaleDown
 	file=open("read_count.txt","r")
 	read_line=file.readline()
 	count=int(read_line)
-	read_line2=file.readline()
-	check_initial=int(read_line2)
 	file.close()
 	res=requests.get("http://0.0.0.0:5000/api/v1/worker/list")	
 	print(json.loads(res.text),"worker list")
@@ -132,19 +148,17 @@ def daemon_call():
 		scalingDown=False
 	
 	file=open("read_count.txt","w")
-	if(check_initial==0):
-		print("writing 1 1 intially")
-		file.write("1")
-		file.write("\n")
-		file.write("1")
-	else:
-		print("resetting count")
-		file.write("0")
-		file.write("\n")
-		file.write("1")
+	print("resetting count")
+	file.write("0")
+	file.write("\n")
+	file.write("1")
 	file.close()
 	threading.Timer(WAIT_SECONDS, daemon_call).start()
 
+#This function elects a new leader from the slave workers which has got the lowest pid.
+#It call worker/list end point to get all the sorted list of worker pids from that it will pick the
+#first pid and with the help of mapping we will set the containers data to master which triggers a 
+#watch related to that container.
 def electLeader():
     global zk
     global currentMasterZnodePath
@@ -160,6 +174,10 @@ def electLeader():
     print("Creating slave after electing leader")
     result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":1})
 
+#This function checks whether master died by comparing it with the currentZnodePath which
+#will be containing the current masters znode path and it that's true then electLeader function 
+#is called.Else it is obvious that some slave died, so in response to that a slave worker is spawned 
+# only if the slave worker is not dead due to scaling down.
 def checkIfMasterDied(event):
     global currentMasterZnodePath
     global scalingDown
@@ -179,7 +197,9 @@ def checkIfMasterDied(event):
         if(slavesDeletedDueToScaleDown>0):
             slavesDeletedDueToScaleDown-=1
 
-
+#This function keeps a watch on the particular znode supplied as the argument to the function.
+#It checks the event type to check whether znode got deleted or not. If it is deleted then 
+#checkIfMasterDied function is called.
 def foo(znode):
     @zk.DataWatch("/producer/"+znode)
     def watch_children_data(data, stat, event):
@@ -198,9 +218,12 @@ def foo(znode):
                     
                     prevEventType="deleted"
                     prevZnodeDataWatchCalledOn=event.path
-                    print("Some worker went to hell!")
+                    print("Some worker got deleted!")
                     checkIfMasterDied(event)
 
+#A children wathc kept on the root /producer/ to detect whether any znode got deleted or not.
+#Depending upon the that particular action will be taken.Whenever the funtion is triggered then 
+#foo funtion is called for every children.
 @zk.ChildrenWatch("/producer/")
 def watch_children(children):
     global crashSlaveApiCalled
@@ -211,8 +234,8 @@ def watch_children(children):
     print("\n\ncrashSlaveApiCalled",crashSlaveApiCalled)
     print("\n\nIn orchestrator watch , Children are now: %s" % children)
     for znode in children:
-        if(znode not in allZnodes):
-            allZnodes[znode]=0
+        # if(znode not in allZnodes):
+        #     allZnodes[znode]=0
             foo(znode)
             znodesCount+=1
     

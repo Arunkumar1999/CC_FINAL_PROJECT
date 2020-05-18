@@ -8,6 +8,8 @@ services:
       - 2181:2181
     networks:
       - network
+# zookeeper container is started with zookeeper as base image mapping the default ports
+# networks is specified so that all the containers run in the same network so that they can communicate
 
  orchestrator:
     build: ./orchestrator
@@ -23,7 +25,11 @@ services:
       - network
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-   
+# orchestrator container is started from specified directory in the build 
+# depends on specifies that this container is dependent on the specifed containers   
+# volumes is specified so that the docker sdk commands can execute on the host
+# port mapping indicates that all the requests to the port 80 is routed to the localhost 5000
+# which is default port for flask application
         
  rabbitmq:
     build: ./rabbitmq
@@ -41,7 +47,6 @@ services:
     container_name: slave
     depends_on:
       - "rabbitmq"
-#      - "orchestrator"
       - "zoo"
     restart: on-failure
     networks:
@@ -53,7 +58,6 @@ services:
     container_name: master
     depends_on:
       - "rabbitmq"
- #     - "orchestrator"
       - "zoo"
     restart: on-failure
     networks:

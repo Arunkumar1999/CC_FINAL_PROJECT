@@ -1,3 +1,4 @@
+#import required libraries
 import sqlite3
 import csv
 import pika
@@ -7,6 +8,7 @@ import sys
 
 time.sleep(10)
 
+#sqlite statements to create the rideshare database
 cursor = sqlite3.connect("rideshare.db")
 cursor.execute("""
         CREATE TABLE IF NOT EXISTS users(
@@ -32,6 +34,7 @@ cursor.execute("""
     );
 """)
 
+#Fetching the values from the csv file and inserting into place table
 with open('AreaNameEnum.csv') as File:  
 	reader = csv.reader(File)
 
@@ -62,12 +65,18 @@ cursor.execute("""
 
 cursor.commit()
 
+#connecting to the rabbitmq server which is running in a 
+#seperate container.
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='rabbitmq'))
 channel = connection.channel()
+
+#fetching the command line argument to decide whether 
+#this worker should behave as master or slave
 master=int(sys.argv[1])
 
-
+#this function is called whenever a db operation has to happen 
+#to maintain the slave database consistent with the masters.
 def synch_to_all(ch, method, properties, body):
 	data=json.loads(body)
 	print(data,"sync to all called")
@@ -86,6 +95,12 @@ def synch_to_all(ch, method, properties, body):
 		cursor.execute("DELETE FROM rideusers")
 		cursor.commit()
 
+
+#this function is called whenever the the new worker is spawned
+#so that the new worker is consistent with other workers.
+#It reads messages from the persistent queue and doesn't acknowledge 
+#because it will be needed by other workers.And sync_to_all function is 
+#called to do the db operations.
 def copy_db_initial(channel):
     try:
         declareStatus = channel.queue_declare(queue="persistent_queue", durable=True)
@@ -108,8 +123,9 @@ def copy_db_initial(channel):
     channel.close()
 
 
-
-
+#This function is invoked when a message is consumed from the read_queue and in this 
+#function actual read operation happens.And the response is sent to the queue specified 
+#in the properties of the request along with correlation id to match the request.
 def read_database(ch,method,props,body):
 	cursor = sqlite3.connect("rideshare.db")
 	print(body,"inside read database")
@@ -166,7 +182,12 @@ def read_database(ch,method,props,body):
 	print(" [x] Sent  ",resp_dict)
 	ch.basic_ack(delivery_tag=method.delivery_tag)
 
-
+#This function is invoked when a message is consumed from the write_queue and in this 
+#function actual write operation happens.And the response is sent to the queue specified 
+#in the properties of the request along with correlation id to match the request.
+#Along with performing the operation it brodcasts the sql query to the logs exchange for 
+#eventual consistency and it publishes the query to the persistent queue which will be used 
+#by the newly spwaned containers to be in consistent with other workers.
 def write_database(ch,method,props,body):
 	
 	data = json.loads(body)
@@ -291,7 +312,11 @@ def write_database(ch,method,props,body):
 	print(" [x] Sent  ",return_response)
 	ch.basic_ack(delivery_tag=method.delivery_tag)
 
-
+#checks if this worker has to work as master if yes then it should be listening to 
+#the write_queue as it contains the requests pertaining to write operations.so the 
+#write queue is declared.
+#And persistent queue is declared to store all the successful write queries which 
+#will be used by the newly spawned workers to be in consistent with other workers.
 if(master):
 	print("I AM THE MASTER")
 	channel.queue_declare(queue='write_queue')
@@ -299,6 +324,12 @@ if(master):
 	channel.basic_consume(queue='write_queue', on_message_callback=write_database)
 
 	channel.start_consuming()
+
+#if this worker has to work as slave then it should be listening to the 
+#read_queue as it contains the requests pertaining to the read operations.so the 
+#read queue is declared.
+#And exchange is declared which is used to get all the messages which are broadcasted 
+#by the master after its successful write operation.
 elif(not master):
 	print("i am the slave")
 	channel_for_synch=connection.channel()
