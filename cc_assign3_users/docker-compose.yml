@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+ web1:
+    build: ./users
+    image: users:latest
+    container_name: users
+    command: python user_management.py
+    restart: always
+    ports:
+      - "80:80"
