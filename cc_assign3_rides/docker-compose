@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+ web1:
+    build: ./rides
+    image: rides:latest
+    container_name: rides
+    command: python  ride_management.py
+    restart: always
+    ports:
+      - "80:80"
