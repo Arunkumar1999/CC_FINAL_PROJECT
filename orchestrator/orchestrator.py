@@ -78,7 +78,6 @@ def spawn_slave():
 	for i in range(count):
 		workerCount+=1
 		container=client.containers.run("slave_image",environment=["workerUniqueId="+str(workerCount)],network="cc_local_copy_network",detach=True)
-		print(container)
 		contId=container.id
 		apiClient=docker.APIClient()
 		data = apiClient.inspect_container(contId)
@@ -99,28 +98,24 @@ def fun_for_count():
 		file.write("\n")
 		file.write("1")
 	except:
-		print("inside except")
+		print("first time called")
 		file=open("read_count.txt","w")
 		file.write("1")
 		file.write("\n")
 		file.write("0")
 	file.close()
 
-def deamon_call():
+def daemon_call():
 	global scalingDown
 	global  slavesDeletedDueToScaleDown
 	file=open("read_count.txt","r")
 	read_line=file.readline()
-	print(read_line,"reading file dsfdsf")
 	count=int(read_line)
 	read_line2=file.readline()
 	check_initial=int(read_line2)
-	print(check_initial,"second digit in file")
 	file.close()
-	print(count,"gggg")
-	res=requests.get("http://0.0.0.0:5000/api/v1/worker/list")
-	print(res)	
-	print(json.loads(res.text),len(json.loads(res.text)),"aaaaa")
+	res=requests.get("http://0.0.0.0:5000/api/v1/worker/list")	
+	print(json.loads(res.text),"worker list")
 	number_of_cont=len(json.loads(res.text))-1
 	new_containers=math.ceil(count/20)
 	if(new_containers==0):
@@ -148,14 +143,13 @@ def deamon_call():
 		file.write("\n")
 		file.write("1")
 	file.close()
-	threading.Timer(WAIT_SECONDS, deamon_call).start()
+	threading.Timer(WAIT_SECONDS, daemon_call).start()
 
 def electLeader():
     global zk
     global currentMasterZnodePath
     global currentMasterpid
     pids = requests.get(url='http://0.0.0.0:5000/api/v1/worker/list')
-    print(pids,"Pids")
     pidList = json.loads(pids.text)
     newMasterPid=pidList[0]
     currentMasterZnodePath=pidZnodeMapping[newMasterPid]
@@ -175,10 +169,10 @@ def checkIfMasterDied(event):
     if(event.path==currentMasterZnodePath):
         print("[x] Checking done.")
         print("Yes its true that master died :(")
-        print("Lets elect our new king .")
+        print("Lets elect our new leader")
         electLeader()
     else:
-        print("Chill dude ! Master dint die :)")
+        print("Master didn't die :)")
         if slavesDeletedDueToScaleDown==0:
             print("creating slave due to fault tolerance")   
             result=requests.post("http://0.0.0.0:5000/api/v1/spawn/slave",json={"count":1})
@@ -222,26 +216,6 @@ def watch_children(children):
             foo(znode)
             znodesCount+=1
     
-   # print(allZnodes,"AllZnodes List")
-   # print(children,"actual znodes")
-   # try:
-    #    zk.get(allZnodes[0],watch=foo)
-   # except Exception as e:
-   #     print(e,'error in @childernwacth')
-   # print(znodesCount,"ZnodesCount")
-   # if(znodesCount>len(children)):
-   #     znodesDeleted=abs(len(children)-znodesCount)
-   #     print(str(znodesDeleted)+" Znodes deleted:( \n")
-   #     znodesCount=len(children)
-   #     temp=[]
-   #     for znode in allZnodes.keys():
-   #         if(znode not in children):
-   #             temp.append(znode)
-   #     for znode in temp:
-   #         allZnodes.pop(znode)#
-
-   # print(allZnodes,"AllZnodes List after ")
-   # print(children,"actual znodes")
 
 class write_class(object):
 	
@@ -263,8 +237,6 @@ class write_class(object):
 	def write_call(self, n):
 		self.write_response = None
 		self.corr_id = str(uuid.uuid4())
-		print(n,"input content")
-		print(self.corr_id,"generated id")
 		self.channel.basic_publish(exchange='',
 		routing_key='write_queue',
 		properties=pika.BasicProperties(
@@ -288,16 +260,12 @@ class read_class(object):
 		auto_ack=True)
 
 	def on_response_read(self, ch, method, props, body):
-		print("inside on_response",body)
-		print(props.correlation_id,"resturned id")
 		if self.corr_id == props.correlation_id:
 			self.read_response = json.loads(body)
 	
 	def read_call(self, n):
 		self.read_response = None
 		self.corr_id = str(uuid.uuid4())
-		print(n,"input content_read_call")
-		print(self.corr_id,"generated id")
 		self.channel1.basic_publish(exchange='',
 		routing_key='read_queue',
 		properties=pika.BasicProperties(
@@ -323,18 +291,16 @@ def read_database():
 	fun_for_count()
 	file=open("read_count.txt","r")
 	count=file.readline()
-	print(count,"aaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	print(count,"number of requests")
 	count2=file.readline()
-	call_deamon=int(count2)
-	print(call_deamon,"calling deamon for the first time")
+	call_daemon=int(count2)
 	file.close()
-	if(call_deamon==0):
-		threading.Timer(WAIT_SECONDS,deamon_call).start()
+	if(call_daemon==0):
+		print("calling daemon process")
+		threading.Timer(WAIT_SECONDS,daemon_call).start()
 	read_content=request.get_json()
-	print(read_content,"content recieved")	
 	read_obj=read_class()
 	read_response=read_obj.read_call(read_content)
-	print(read_response,"response of list of users")
 	return jsonify(read_response)
 
 
@@ -347,7 +313,6 @@ def worker_list():
 		if(i.name=="orchestrator" or i.name=="rabbitmq" or i.name=="cc_local_copy_zoo_1"):
 			print(i.id,i.name)
 		else:
-			print(i.name,"4445445455")
 			container_list.append(i.id)
 	pid_list=[]
 	c=docker.APIClient()
@@ -374,7 +339,6 @@ def crash_slave():
 		slave_pid.append(PID)
 		mapping[PID]=i
 	slave_pid.sort()
-	print(slave_pid,"when  only one container is present")
 	print(mapping,"mapping dictionary")
 	if(len(slave_pid)==0):
 		print("no containers to kill")
