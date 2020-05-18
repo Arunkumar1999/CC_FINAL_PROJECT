@@ -30,7 +30,7 @@ zk.start()
 
 
 crashSlaveApiCalled=False
-c=0
+#c=0
 workerCount=1
 prevZnodeDataWatchCalledOn=""
 prevEventType=""
@@ -222,26 +222,26 @@ def watch_children(children):
             foo(znode)
             znodesCount+=1
     
-    print(allZnodes,"AllZnodes List")
-    print(children,"actual znodes")
-    try:
-        zk.get(allZnodes[0],watch=foo)
-    except Exception as e:
-        print(e,'error in @childernwacth')
-    print(znodesCount,"ZnodesCount")
-    if(znodesCount>len(children)):
-        znodesDeleted=abs(len(children)-znodesCount)
-        print(str(znodesDeleted)+" Znodes deleted:( \n")
-        znodesCount=len(children)
-        temp=[]
-        for znode in allZnodes.keys():
-            if(znode not in children):
-                temp.append(znode)
-        for znode in temp:
-            allZnodes.pop(znode)
+   # print(allZnodes,"AllZnodes List")
+   # print(children,"actual znodes")
+   # try:
+    #    zk.get(allZnodes[0],watch=foo)
+   # except Exception as e:
+   #     print(e,'error in @childernwacth')
+   # print(znodesCount,"ZnodesCount")
+   # if(znodesCount>len(children)):
+   #     znodesDeleted=abs(len(children)-znodesCount)
+   #     print(str(znodesDeleted)+" Znodes deleted:( \n")
+   #     znodesCount=len(children)
+   #     temp=[]
+   #     for znode in allZnodes.keys():
+   #         if(znode not in children):
+   #             temp.append(znode)
+   #     for znode in temp:
+   #         allZnodes.pop(znode)#
 
-    print(allZnodes,"AllZnodes List after ")
-    print(children,"actual znodes")
+   # print(allZnodes,"AllZnodes List after ")
+   # print(children,"actual znodes")
 
 class write_class(object):
 	
