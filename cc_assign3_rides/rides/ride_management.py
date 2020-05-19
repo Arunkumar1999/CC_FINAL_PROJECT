@@ -6,7 +6,7 @@ import csv
 from datetime import datetime
 
 app=Flask(__name__)
-cursor = sqlite3.connect("rideshare_of_rides.db")
+# cursor = sqlite3.connect("rideshare_of_rides.db")
 file=open("text.txt","w")
 file.write("0")
 file.close()
@@ -30,200 +30,200 @@ def fun():
 	file.close()
 
 #fun()
-cursor.execute("""
-        CREATE TABLE IF NOT EXISTS rideusers(
-         id int not null,
-  		 name varchar(20),
-		primary key(id,name)
-        );
-    """)
+# cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS rideusers(
+#          id int not null,
+#   		 name varchar(20),
+# 		primary key(id,name)
+#         );
+#     """)
 
-cursor.execute("""
-    CREATE TABLE IF NOT EXISTS place(
-      id int primary key,
-	  name varchar(20)
-    );
-""")
+# cursor.execute("""
+#     CREATE TABLE IF NOT EXISTS place(
+#       id int primary key,
+# 	  name varchar(20)
+#     );
+# """)
 
-with open('AreaNameEnum.csv') as File:  
-	reader = csv.reader(File)
+# with open('AreaNameEnum.csv') as File:  
+# 	reader = csv.reader(File)
 
-	i=0
-	for row in reader:
-		if(i):
-			try:
-				d=[row[0],row[1]]
-				sql="insert into place values (?,?)"
+# 	i=0
+# 	for row in reader:
+# 		if(i):
+# 			try:
+# 				d=[row[0],row[1]]
+# 				sql="insert into place values (?,?)"
 				
-				cursor.execute(sql,d)
-			except:
-				continue	
-		i=1	
+# 				cursor.execute(sql,d)
+# 			except:
+# 				continue	
+# 		i=1	
 
-cursor.commit()
+# cursor.commit()
 
-cursor.execute("""
-        CREATE TABLE IF NOT EXISTS rides(
-          rideid integer  primary key AUTOINCREMENT,
-          name varchar(20) not null ,
-  		  timest DATETIME not null,
-  		  source varchar(30) not null,
-  		  desti varchar(30) not null
-        );
-""")
+# cursor.execute("""
+#         CREATE TABLE IF NOT EXISTS rides(
+#           rideid integer  primary key AUTOINCREMENT,
+#           name varchar(20) not null ,
+#   		  timest DATETIME not null,
+#   		  source varchar(30) not null,
+#   		  desti varchar(30) not null
+#         );
+# """)
 
-cursor.commit()
+# cursor.commit()
 
 @app.route("/", methods=["GET"])
 def hello():
      return "<h1>Hello</h1>"
 
-@app.route("/api/v1/db/read",methods=["POST"])
-def read_database():
-	cursor = sqlite3.connect("rideshare_of_rides.db")
-	resp_dict={}
-	val=request.get_json()["insert"]
-	table=request.get_json()["table"]
-	column=request.get_json()["column"]
-	where_check_cond=request.get_json()["where"]
-	if(len(where_check_cond)>0):
-		check_string=""
-		for i in range(len(where_check_cond)-1):
-			check_string+=where_check_cond[i]+" = "+"'"+val[i]+"'"+" AND "
-		check_string+=where_check_cond[len(where_check_cond)-1]+" = "+"'"+val[len(where_check_cond)-1]+"'"
-		##print(check_string,"aaaaaaaaaaaaa")
+# @app.route("/api/v1/db/read",methods=["POST"])
+# def read_database():
+# 	cursor = sqlite3.connect("rideshare_of_rides.db")
+# 	resp_dict={}
+# 	val=request.get_json()["insert"]
+# 	table=request.get_json()["table"]
+# 	column=request.get_json()["column"]
+# 	where_check_cond=request.get_json()["where"]
+# 	if(len(where_check_cond)>0):
+# 		check_string=""
+# 		for i in range(len(where_check_cond)-1):
+# 			check_string+=where_check_cond[i]+" = "+"'"+val[i]+"'"+" AND "
+# 		check_string+=where_check_cond[len(where_check_cond)-1]+" = "+"'"+val[len(where_check_cond)-1]+"'"
+# 		##print(check_string,"aaaaaaaaaaaaa")
 				
 
-	r=""
-	s=""
-	e=len(column)-1
-	for i in range(e):
-		r+=column[i]+","
-		s+="?,"
-	r+=column[e]
-	s+="?"
-	for i in range(len(val)):
-		val[i]=val[i].encode("utf8")
+# 	r=""
+# 	s=""
+# 	e=len(column)-1
+# 	for i in range(e):
+# 		r+=column[i]+","
+# 		s+="?,"
+# 	r+=column[e]
+# 	s+="?"
+# 	for i in range(len(val)):
+# 		val[i]=val[i].encode("utf8")
 
-	if(len(where_check_cond)>0):
-		sql="select "+r+" from "+table+" where "+check_string+";"
-	else:
-		sql="select "+r+" from "+table+";"
-		print(sql,"ghgghhghghghghghhg")
+# 	if(len(where_check_cond)>0):
+# 		sql="select "+r+" from "+table+" where "+check_string+";"
+# 	else:
+# 		sql="select "+r+" from "+table+";"
+# 		print(sql,"ghgghhghghghghghhg")
 	
 	
-	resp=cursor.execute(sql)
-	resp_check=resp.fetchall()
-	if(len(resp_check) == 0):
-		resp_dict["response"]=0
-		return json.dumps(resp_dict)
-	else:
+# 	resp=cursor.execute(sql)
+# 	resp_check=resp.fetchall()
+# 	if(len(resp_check) == 0):
+# 		resp_dict["response"]=0
+# 		return json.dumps(resp_dict)
+# 	else:
 		
-		#print(resp_check)
-		#print(list(resp_check[0]))
-		#print(len(resp_check),"count of all rows")
-		resp_dict["count"]=resp_check[0]
-		for i in range(len(resp_check)):
-			for j in range(len(column)):
-				resp_dict.setdefault(column[j],[]).append(list(resp_check[i])[j])
-		#print(resp_dict,"hii i am dict")
-		#print("user does exists from read_Db")
-		resp_dict["response"]=1
-		return json.dumps(resp_dict)
+# 		#print(resp_check)
+# 		#print(list(resp_check[0]))
+# 		#print(len(resp_check),"count of all rows")
+# 		resp_dict["count"]=resp_check[0]
+# 		for i in range(len(resp_check)):
+# 			for j in range(len(column)):
+# 				resp_dict.setdefault(column[j],[]).append(list(resp_check[i])[j])
+# 		#print(resp_dict,"hii i am dict")
+# 		#print("user does exists from read_Db")
+# 		resp_dict["response"]=1
+# 		return json.dumps(resp_dict)
 
-@app.route("/api/v1/db/write",methods=["POST"])
-def to_database():
+# @app.route("/api/v1/db/write",methods=["POST"])
+# def to_database():
 	
-	indicate=request.get_json().get("indicate")
-	#print("indicate:", indicate)
-	try :
-		cursor = sqlite3.connect("rideshare_of_rides.db")
-		cursor.execute("PRAGMA FOREIGN_KEYS=on")
-		cursor.commit()
-	except Exception as e:
-		#print("Database connect error:",e)
-		pass
-	if(indicate=="0"):
-		val=request.get_json().get("insert")
-		table=request.get_json().get("table")
-		column=request.get_json().get("column")
-		#print("val:",val)
-		#print("table",table)
-		#print("column:", column)
-		r=""
-		s=""
-		e=len(column)-1
-		for i in range(e):	
-			r+=column[i]+","
-			s+="?,"
-		r+=column[e]
-		s+="?"
-		for i in range(len(val)):
-			val[i]=val[i]
+# 	indicate=request.get_json().get("indicate")
+# 	#print("indicate:", indicate)
+# 	try :
+# 		cursor = sqlite3.connect("rideshare_of_rides.db")
+# 		cursor.execute("PRAGMA FOREIGN_KEYS=on")
+# 		cursor.commit()
+# 	except Exception as e:
+# 		#print("Database connect error:",e)
+# 		pass
+# 	if(indicate=="0"):
+# 		val=request.get_json().get("insert")
+# 		table=request.get_json().get("table")
+# 		column=request.get_json().get("column")
+# 		#print("val:",val)
+# 		#print("table",table)
+# 		#print("column:", column)
+# 		r=""
+# 		s=""
+# 		e=len(column)-1
+# 		for i in range(e):	
+# 			r+=column[i]+","
+# 			s+="?,"
+# 		r+=column[e]
+# 		s+="?"
+# 		for i in range(len(val)):
+# 			val[i]=val[i]
 
-		try:
+# 		try:
 
-			sql="insert into "+table+" ("+r+")"+" values ("+s+")"
-			#print("query:",sql)
-			cursor.execute(sql,val)
+# 			sql="insert into "+table+" ("+r+")"+" values ("+s+")"
+# 			#print("query:",sql)
+# 			cursor.execute(sql,val)
 
-			cursor.commit()
-			# sql="select * from "+table
-			# et=cursor.execute(sql)
-			# rows = et.fetchall()
+# 			cursor.commit()
+# 			# sql="select * from "+table
+# 			# et=cursor.execute(sql)
+# 			# rows = et.fetchall()
 
-			# sql="select * from users"
-			# et=cursor.execute(sql)
-			# rows = et.fetchall()
-			#return jsonify(1)
-		except Exception as e:
-			#print(e)
-			sql="select * from "+table
-			et=cursor.execute(sql)
-			rows = et.fetchall()
-			#for row in rows:
-				#print(row,"we")
-			return jsonify(0)
-		return jsonify(1)
-	elif(indicate=='1'):
-		table=request.get_json()["table"]
-		delete=request.get_json()["delete"]
-		column=request.get_json()["column"]
-		#print("table",table)
-		#print("delete:",delete)
-		try:
-			#print("asdf")
-			sql="select * from "+table+" WHERE "+column+"=(?)"
-			#print("query",sql)
-			et=cursor.execute(sql,(delete,))
-			if(not et.fetchone()):
-				#print("fs")
-				return jsonify(0)
+# 			# sql="select * from users"
+# 			# et=cursor.execute(sql)
+# 			# rows = et.fetchall()
+# 			#return jsonify(1)
+# 		except Exception as e:
+# 			#print(e)
+# 			sql="select * from "+table
+# 			et=cursor.execute(sql)
+# 			rows = et.fetchall()
+# 			#for row in rows:
+# 				#print(row,"we")
+# 			return jsonify(0)
+# 		return jsonify(1)
+# 	elif(indicate=='1'):
+# 		table=request.get_json()["table"]
+# 		delete=request.get_json()["delete"]
+# 		column=request.get_json()["column"]
+# 		#print("table",table)
+# 		#print("delete:",delete)
+# 		try:
+# 			#print("asdf")
+# 			sql="select * from "+table+" WHERE "+column+"=(?)"
+# 			#print("query",sql)
+# 			et=cursor.execute(sql,(delete,))
+# 			if(not et.fetchone()):
+# 				#print("fs")
+# 				return jsonify(0)
 			
-			sql = "DELETE from "+table+" WHERE "+column+"=(?)"
-			#print(table,column,delete)
-			#print(sql)
-			et=cursor.execute(sql,(delete,))
-			#print(et.fetchall())
-			cursor.commit()
-		except Exception as e:
-			#print(e)
-			#print("rt")
-			return jsonify(0)
-		return jsonify(1)
-	elif(indicate=='3'):
-		try:
-			et=cursor.execute("DELETE FROM rides")
-			cursor.execute("DELETE FROM rideusers")
-			cursor.commit()
-		except Exception as e:
-			return jsonify(0)
-		return jsonify(1)
+# 			sql = "DELETE from "+table+" WHERE "+column+"=(?)"
+# 			#print(table,column,delete)
+# 			#print(sql)
+# 			et=cursor.execute(sql,(delete,))
+# 			#print(et.fetchall())
+# 			cursor.commit()
+# 		except Exception as e:
+# 			#print(e)
+# 			#print("rt")
+# 			return jsonify(0)
+# 		return jsonify(1)
+# 	elif(indicate=='3'):
+# 		try:
+# 			et=cursor.execute("DELETE FROM rides")
+# 			cursor.execute("DELETE FROM rideusers")
+# 			cursor.commit()
+# 		except Exception as e:
+# 			return jsonify(0)
+# 		return jsonify(1)
 
 
 
-	else:
-		return jsonify(0)
+# 	else:
+# 		return jsonify(0)
 
 
 @app.route("/api/v1/rides",methods=["POST"])
